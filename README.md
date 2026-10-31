@@ -120,18 +120,19 @@ experiment shows.
 
 ## The command-line tool
 
-`cli/` holds a small package, installable with `pip install -e cli`, that runs the
-same analysis from the command line. It reads the harness and generic formats, and it
-reads Claude Code's OpenTelemetry output. Claude Code reports per-call token counts
-through the `claude_code.api_request` event, which carries `input_tokens`,
-`output_tokens`, `cache_read_tokens` and related fields; the reader is built against
-that documented schema. It has not yet been checked against a real Claude Code
-telemetry capture, which is the one thing needed before it should be relied on.
-Claude Code's telemetry has no plan structure, so for its logs the tool shows the
-resend split and the growth curve but reports that there are no boundaries to compress
-rather than inventing them.
+`cli/` holds a small package that runs the same analysis from the command line. It
+reads the harness and generic formats, and it reads Claude Code's OpenTelemetry output.
+Claude Code reports per-call token counts through the `claude_code.api_request` event,
+which carries `input_tokens`, `output_tokens`, `cache_read_tokens` and related fields;
+the reader is built against that documented schema. It has not yet been checked against
+a real Claude Code telemetry capture, which is the one thing needed before it should be
+relied on. Claude Code's telemetry has no plan structure, so for its logs the tool
+shows the resend split and the growth curve but reports that there are no boundaries to
+compress rather than inventing them.
 
-    pip install -e cli
+Install it from the `cli` directory, or straight from GitHub, and run it:
+
+    cd cli && pip install .
     tokenlens analyze batch_summary.json
     tokenlens analyze run_log.json --json
 

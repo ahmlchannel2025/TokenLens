@@ -12,7 +12,15 @@ figure, kept to the standard library so it cannot drift from the result it repor
 
 ## Install
 
-    pip install -e .
+Clone the repository and install this package from the `cli` directory:
+
+    git clone https://github.com/ahmlchannel2025/TokenLens.git
+    cd TokenLens/cli
+    pip install .
+
+Or install it directly from GitHub without cloning:
+
+    pip install "git+https://github.com/ahmlchannel2025/TokenLens.git#subdirectory=cli"
 
 ## Use
 
