@@ -1,14 +1,13 @@
-"""analysis.py - the core token analysis, shared by every input format.
+"""The token analysis, shared by every input format.
 
-This is the same logic the TokenLens web tool runs, kept deliberately small and
-dependency-free so it can't drift from the finding it reports:
+This is the same computation the web tool runs. It stays in the standard library so
+it cannot drift from the figures it reports. It produces three things: the share of
+total tokens that is input resent on each step, the mean input per step by position
+in the run, and an estimate of what compressing the context at goal boundaries would
+save, which is an upper bound rather than a result that is safe to apply.
 
-  - resend %   = input tokens / total tokens  (context re-sent each step)
-  - the mean-input-per-step curve by run position (why resend dominates)
-  - a boundary-compression projection (an UPPER BOUND, not a safe-to-apply result)
-
-A `Step` is the common shape every reader produces, so the analysis never needs to
-know which format the log came from.
+Each reader turns its format into a list of Step, so the analysis never needs to know
+where a log came from.
 """
 from __future__ import annotations
 

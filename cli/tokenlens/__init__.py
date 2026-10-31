@@ -1,12 +1,13 @@
-"""tokenlens - see where an AI coding agent's tokens go.
+"""tokenlens reports where an AI coding agent's tokens went.
 
-Reads an agent run log (HVA harness JSON, a generic step log, or Claude Code
-OpenTelemetry output) and reports context resend vs new output, the per-step
-context-growth curve, and -- where the log has goal boundaries -- a
-boundary-compression projection.
+It reads an agent run log, in the harness format, a generic step log, or Claude Code's
+OpenTelemetry output, and reports the share that is context resent on each step against
+new output, how the context grows over the run, and, where the log marks goal
+boundaries, an estimate of what compressing at those boundaries would save.
 
-From the Hierarchy-Aware Context Compression study: across 63.4M tokens, ~98% of a
-step-wise agent's tokens are context re-sent each step, not new work.
+The figure behind it, from the study in the repository, is that across 63.4 million
+tokens about 98% of a step-wise agent's tokens were context resent each step rather
+than new work.
 """
 from .analysis import analyze, Analysis, Run, Step
 from . import readers
