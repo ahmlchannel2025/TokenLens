@@ -1,12 +1,12 @@
-"""cli.py - the `tokenlens` command.
+"""The tokenlens command.
 
-    tokenlens analyze <log.json>              auto-detect harness / generic / otel
-    tokenlens analyze <log.json> --json       machine-readable output
-    tokenlens analyze -                        read a log from stdin (e.g. a telemetry pipe)
+    tokenlens analyze <log.json>          read a log file, format detected automatically
+    tokenlens analyze <log.json> --json   print the numbers as JSON
+    tokenlens analyze -                   read a log from standard input
 
-Reports where an agent's tokens go: context resend vs new output, the per-step
-context-growth curve, and -- only when the log carries goal boundaries -- a
-boundary-compression projection.
+It reports where an agent's tokens went: context resent on each step against new
+output, how the context grew over the run, and, when the log marks goal boundaries,
+an estimate of what compressing at those boundaries would save.
 """
 from __future__ import annotations
 

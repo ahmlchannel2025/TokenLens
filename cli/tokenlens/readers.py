@@ -1,13 +1,10 @@
-"""readers.py - turn each supported log format into the common Run/Step shape.
+"""Turn each supported log format into the common Run and Step shape.
 
-Three formats, auto-detected:
-  - harness  : an HVA batch_summary.json (runs[]) or a single run (steps[]).
-  - generic  : a JSON array of {step, input_tokens, output_tokens, goal?, boundary?},
-               which any Claude API agent loop can emit from response.usage.
-  - otel     : Claude Code OpenTelemetry events (see otel.py). Built against the
-               documented schema; needs validation against a real dump.
-
-detect() picks the format from the parsed JSON so callers don't have to.
+Three formats are read, and detect() chooses among them from the parsed JSON. The
+harness format is a batch summary with a runs list, or a single run with a steps list.
+The generic format is a JSON array of per-step objects with input_tokens and
+output_tokens, which an agent loop built on the Claude API can produce from
+response.usage. The third is Claude Code's OpenTelemetry output, handled in otel.py.
 """
 from __future__ import annotations
 

@@ -1,33 +1,22 @@
-"""otel.py - read Claude Code OpenTelemetry output into the common Run/Step shape.
+"""Read Claude Code's OpenTelemetry output into the common Run and Step shape.
 
-Field names are from the official Claude Code monitoring docs
-(code.claude.com/docs/en/monitoring-usage). The `claude_code.api_request` event
-carries, per API call:
+The field names come from Claude Code's monitoring documentation
+(code.claude.com/docs/en/monitoring-usage). Its claude_code.api_request event fires
+once per API call and carries, among other fields, input_tokens (excluding cache),
+output_tokens, cache_read_tokens, cache_creation_tokens, model, cost and duration, and
+a session.id. One such event is one API call, which is one step here.
 
-    input_tokens           input tokens, EXCLUDING prompt-cache tokens
-    output_tokens          output tokens
-    cache_read_tokens      tokens read from cache
-    cache_creation_tokens  tokens written to cache
-    model, cost_usd, cost_usd_micros, duration_ms, session.id
+Claude Code's telemetry records no plan or goal structure, so a log of it has no
+boundaries, and the compression projection cannot be made from it. Steps are returned
+with no goal and boundary set to false, and the caller reports that there are no
+boundaries rather than inventing them. What a Claude Code log does support is the
+resend-against-output split and the per-call growth curve.
 
-One `api_request` event == one API call == one step, which is exactly the Step the
-analysis wants.
-
-IMPORTANT LIMITATION (by design, not a bug): Claude Code's telemetry has no plan or
-goal structure. There are no goal boundaries in the stream, so a boundary-compression
-projection cannot be made from a Claude Code log -- only the resend-vs-output split
-and the per-call context-growth curve. Steps are returned with boundary=False and
-goal=None, and the caller reports "no boundaries" rather than inventing them.
-
-INPUT SHAPES handled:
-  - JSON Lines from the `console` / file exporter: one record per line.
-  - A parsed OTLP logs payload: {"resourceLogs": [...]} with nested scopeLogs/logRecords.
-  - A plain list of event dicts (already extracted).
-
-STATUS: built against the documented schema; validate against a real Claude Code
-telemetry dump before relying on it. `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` emits
-protobuf, which this reader does not parse -- use the JSON/console exporter, or an
-OTLP/HTTP+JSON collector, to produce text this can read.
+Three input shapes are handled: JSON Lines from the console or file exporter, with one
+record per line; a parsed OTLP logs payload with a resourceLogs list; and a plain list
+of event objects. The reader has not been checked against a real capture, and it reads
+JSON, not the protobuf that the gRPC exporter produces, so the console or an
+OTLP-over-HTTP-JSON exporter is what to use with it.
 """
 from __future__ import annotations
 

@@ -1,139 +1,148 @@
 # Hierarchy-Aware Context Compression for Coding Agents
 
-A study of where a step-wise coding agent's tokens actually go, and what happens
-when you compress its context at plan boundaries.
+A coding agent that works through a task over many steps has no memory between the
+calls it makes to the model, so on every call it resends the whole transcript of
+what it has done so far. This repository measures how much that costs, tests one way
+to reduce it, and reports a failure the reduction introduces.
 
-**TL;DR** — Across three task shapes and 63.4M tokens, **97.9% of an agent's
-tokens are context being re-sent on every step**, not new work. Replacing completed
-goals' transcripts with short summaries at each goal boundary cut total tokens
-**54%** on a maintenance task — but it dropped task success from 20/20 to 18/20 by
-inducing a specific, characterized failure (the agent stops early while aware it
-isn't done). The saving is real; "at equal success" is not yet.
+Across three task shapes and 63.4 million tokens, 97.9% of an agent's tokens were
+input being resent on each step rather than new output, and this fraction barely
+moved between task types. Replacing the transcript of completed goals with short
+summaries at each goal boundary cut total tokens by 54% on a code-maintenance task,
+but it lowered the task-success rate from 20 of 20 runs to 18 of 20 by making the
+agent stop early while it still had work to do. The saving is real; whether it comes
+at equal success is not something this work establishes.
 
-Live demo: **[TokenLens](#tokenlens-the-demo)** — drop in a run log, see the split.
+The live demo, TokenLens, takes an agent run log and shows the same breakdown:
+context resend against new output, how the context grows over a run, and how much
+boundary compression might save.
 
----
+## What the experiments found
 
-## The finding, in four results
+The dominant cost is resend, not verification. A common assumption in work on agent
+efficiency is that the waste worth attacking is the agent re-checking its own work.
+On these tasks that is misdirected. Input, meaning the context resent on each call,
+was 97.9% of all tokens, almost constant across task shapes (98.0% on the pipeline
+task, 97.8% on calc, 97.8% on refactor), while verification and recovery together
+came to a few percent. Within a run, input per step climbed from roughly five
+thousand tokens early to tens of thousands late, because each step pays again for
+everything before it.
 
-1. **Context resend dominates.** Input (context re-sent each call) is **97.9%** of
-   all tokens, nearly constant across task shapes (pipeline 98.0%, calc 97.8%,
-   refactor 97.8%). Per-step input climbs ~5k → ~40k across a run because each step
-   re-pays for the whole history before it. Verification and recovery are a few
-   percent. **The cost to attack is context resend, not self-verification.**
+We had expected failures to cluster at the boundaries between goals, and they did
+not, at least not in general. The ratio of boundary to internal failure rate was
+0.45 on the pipeline task and 0.00 on calc, so failures there were internal rather
+than at the seams. On the refactor task the ratio was 1.11, in the direction we
+expected, but the confidence intervals for the two rates overlap, so we do not treat
+the difference as established.
 
-2. **Boundary-concentrated failure does not generalize.** We hypothesized agent
-   failures cluster at goal boundaries. They don't: the boundary/internal failure-rate
-   ratio is 0.45 (pipeline), 0.00 (calc), 1.11 (refactor). On the one task where it
-   leans the right way, the confidence intervals overlap — not established.
+We also looked for cases where the agent passed all of its own step checks while
+failing an independent test suite, since an agent that satisfies each subgoal while
+missing the overall goal is a known worry. Across 60 runs there were none. On these
+tasks the agent's own reports of success tracked the independent check.
 
-3. **Agents did not game their own checks.** Across 60 runs, zero cases of an agent
-   passing all its own step checks while failing an independent test suite. On these
-   tasks the self-reports were honest.
+Boundary compression saved a large fraction of tokens and cost some task success. On
+the refactor task over 20 matched seeds, compression reduced total tokens by 54.2%,
+counting the cost of the summary-generating calls, and every one of the 20 runs was
+cheaper. Global success, measured by a hidden test suite that never sees the agent's
+own claims, fell from 20 of 20 to 18 of 20. The runs that failed did not fail from
+lost information: the agent kept its instructions, tools and plan, and had re-read
+the function signatures its later steps referred to. What the compressed context
+changed was how the conversation read. A tidy block of completed-goal summaries looks
+like a finished piece of work, and the model answered with a closing remark instead
+of its next action. The failure is a low-rate random event rather than a property of
+particular inputs; across two re-run batches the seed that failed moved. It also
+persisted when the summary ended with an explicit instruction that the task was not
+complete and the next move had to be a tool call.
 
-4. **Boundary compression: a large saving with a specific cost.** −54.2% tokens on
-   refactor (20 seeds, summary-call cost included, cheaper on every seed), but global
-   success fell 20/20 → 18/20. The lost runs are **not** information loss — the agent
-   retained its instructions, tools, and plan, and re-acquired every signature it
-   referenced. The failure is premature termination: a compressed context reads as
-   finished, and the model ends its turn. It is a low-rate *stochastic* failure
-   (the failing seed moves between re-runs), and it persists even with an explicit
-   "you are not done, call a tool" footer in the prompt.
-
-Full write-up: see the preprint PDF in this repo.
-
----
+The full account is in the preprint under `paper/`.
 
 ## How it works
 
-A minimal, instrumented ReAct coding agent:
+The agent is a small ReAct loop in `harness/harness.py`. The model first produces a
+plan of goals and ordered substeps, then executes the substeps in order, one tool
+call per step, choosing among writing a file, running a shell command, and declaring
+the current substep finished. Execution is forced to follow the plan so that a
+boundary, the first step of a new goal, is a fact about what the agent did rather
+than something it claims. Each step's token counts, its boundary-or-internal tag, and
+the agent's own untrusted report of whether the step worked are logged. The optional
+compression mode replaces finished goals' transcripts with one-line summaries when a
+new goal begins.
 
-- **`harness.py`** — the agent loop. The model plans (goals → ordered substeps),
-  then executes substeps in order, one tool call per step (`write_file`,
-  `run_shell`, `finish_substep`). Execution is forced to follow the plan so that
-  "boundary" (first step of a new goal) is a fact about execution, not the model's
-  claim. Logs per-step token counts, tags, and the agent's (untrusted) self-report.
-  Optional `compress_at_boundaries` replaces finished goals' transcripts with
-  one-line summaries.
+The success check is in `harness/checker.py`, and it is deliberately kept apart from
+the agent. It runs a hidden pytest suite against whatever files the agent left behind
+and reports only the exit code. It never calls a model and never reads the agent's
+logs or self-reports. The separation is the point of the method: an agent that grades
+its own work cannot be trusted to report that compression preserved correctness, so
+the judge of correctness sits entirely outside it.
 
-- **`checker.py`** — the independent success check. Runs a hidden pytest suite
-  against the agent's output, judged by **exit code only**. It never calls a model
-  and never reads the agent's logs or self-reports. This separation is the point:
-  an agent that grades itself can't be trusted to report that compression preserved
-  correctness, so the arbiter of correctness lives entirely outside the agent.
+`harness/batch.py` runs a number of seeds per task and writes the results to
+`batch_summary.json`. The three tasks live in `harness/tasks/` and were written so
+that a boundary means a different kind of seam in each: the pipeline task splits work
+across modules joined by a shared schema, calc builds a stateful calculator in one
+file where later operations depend on earlier state, and refactor changes existing,
+already-passing code, which is the maintenance case.
 
-- **`batch.py`** — runs N seeds per task, aggregates to `batch_summary.json`.
+To run it:
 
-- **`tasks/`** — three self-authored tasks with hidden test suites, chosen so
-  "boundary" means a different kind of seam in each: `pipeline` (module splits +
-  shared schema), `calc` (one file, state-linked capabilities), `refactor` (edits
-  to existing code — the maintenance shape).
+    pip install -r harness/requirements.txt
+    export ANTHROPIC_API_KEY=...  ANTHROPIC_MODEL=claude-...
+    python harness/batch.py --n 20
+    python harness/batch.py --tasks refactor --n 20 --compress --summary compressed.json
 
-### Run it
+The notebooks `analyze.ipynb` and `analyze_compression.ipynb` read the resulting
+summaries and produce the failure-rate tables, the token splits, and the compression
+comparison.
 
-```bash
-pip install -r requirements.txt           # anthropic, pytest, pyyaml, matplotlib
-export ANTHROPIC_API_KEY=...  ANTHROPIC_MODEL=claude-...
-python batch.py --n 20                     # all three tasks -> batch_summary.json
-python batch.py --tasks refactor --n 20 --compress --summary compressed.json
-```
+The `tasks/` directory is not included in this repository, because it was not among
+the files available when the repository was assembled. The harness imports it, so the
+code will not run until it is added. See `harness/tasks_MISSING.md` for the four files
+it expects and what each one defines.
 
-Then open `analyze.ipynb` (per-task failure rates, token splits) or
-`analyze_compression.ipynb` (the compression comparison).
+## TokenLens
 
----
+`web/index.html` is a browser tool that reads an agent run log and shows where the
+tokens went: context resend against new output, the mean input per step by position
+in the run, and, when the log marks goal boundaries, a projection of what boundary
+compression would save. Fed the harness logs, it reproduces the numbers above.
 
-## TokenLens (the demo)
+It reads two formats. The first is the harness output itself, either a
+`batch_summary.json` or a single run under `runs/`. The second is a generic step log,
+a JSON array of objects with `step`, `input_tokens` and `output_tokens`, and
+optionally `goal` and `boundary`, which any agent loop built on the Claude API can
+produce by recording `response.usage` after each call. The optional goal and boundary
+fields are what make the compression projection possible.
 
-A web tool that reads an agent run log and shows where the tokens go: context
-resend vs new output, the per-step context-growth curve, and a boundary-compression
-projection. It reproduces the paper's numbers exactly when fed the harness logs.
+The tool labels resent context as resend rather than waste. Resend is how a stateless
+model keeps track of what it has done, so calling it waste would be wrong; only the
+part a boundary summary could replace is marked compressible, and that figure is an
+upper bound rather than a result that is safe to apply, for the reason the compression
+experiment shows.
 
-It accepts two formats:
+## The command-line tool
 
-- **This harness** — drop a `batch_summary.json` or any single `runs/*.json`.
-- **Generic step log** — a JSON array any Claude API agent loop can emit:
-  ```json
-  [{"step":0,"input_tokens":3100,"output_tokens":160,"goal":0,"boundary":false}]
-  ```
-  Append one row per step from `response.usage`; the optional `goal`/`boundary`
-  fields unlock the compression projection.
+`cli/` holds a small package, installable with `pip install -e cli`, that runs the
+same analysis from the command line. It reads the harness and generic formats, and it
+reads Claude Code's OpenTelemetry output. Claude Code reports per-call token counts
+through the `claude_code.api_request` event, which carries `input_tokens`,
+`output_tokens`, `cache_read_tokens` and related fields; the reader is built against
+that documented schema. It has not yet been checked against a real Claude Code
+telemetry capture, which is the one thing needed before it should be relied on.
+Claude Code's telemetry has no plan structure, so for its logs the tool shows the
+resend split and the growth curve but reports that there are no boundaries to compress
+rather than inventing them.
 
-**Claude Code** users: per-call tokens come through OpenTelemetry (the
-`claude_code.api_request` event), not a file you can drop into the web tool. The
-companion CLI (below) reads that stream directly.
+    pip install -e cli
+    tokenlens analyze batch_summary.json
+    tokenlens analyze run_log.json --json
 
-The tool labels context resend as **resend**, not "wasted" — resend is how a
-stateless model remembers what it did. Only the portion a boundary summary could
-replace is marked compressible, and the projection is an upper bound, not a
-safe-to-apply result (see result #4).
+## Scope
 
----
-
-## tokenlens (the CLI)
-
-`pip install tokenlens` — runs the same analysis over your own logs from the
-command line, and (for Claude Code) reads the OpenTelemetry stream directly instead
-of a dropped file.
-
-```bash
-tokenlens analyze batch_summary.json       # harness or generic JSON
-tokenlens analyze run_log.json --format generic
-```
-
-Status: in development. The OpenTelemetry reader for Claude Code is built against
-the documented `claude_code.api_request` schema and needs validation against a real
-Claude Code telemetry dump before it's load-bearing.
-
----
-
-## What this is, and isn't
-
-This is a small, honest study on one model (Claude Haiku) with self-authored tasks,
-run on a student budget. The context-cost result is robust and task-invariant. The
-compression saving is measured but **not** established at equal success — the gate
-failed, and confirming whether the mitigation restores parity needs more runs than
-the budget allowed. The boundary-failure-location question (result #2) remains open
-on maintenance tasks: the point estimate leans the right way but the intervals
-overlap. Confirming the context-cost fraction and the termination failure on a
-public agent benchmark is the natural next step.
+This is a small study. It uses one model, Claude Haiku, and three tasks written for
+the purpose, run on a limited budget. The result about where the tokens go is robust
+and holds across the three task shapes. The compression saving is measured but not
+established at equal success, because the success rate dropped and confirming whether
+the mitigation recovers it would take more runs than the budget allowed. The question
+of whether failures concentrate at boundaries on maintenance tasks is left open: the
+estimate points the expected way but the intervals overlap. Reproducing the resend
+figure and the termination failure on an established public benchmark is the natural
+next step.

@@ -108,7 +108,7 @@ a{color:var(--accent)}
   <header>
     <p class="eyebrow">Agent token economics</p>
     <h1>TokenLens</h1>
-    <p class="tag">Drop in an agent run log and see where the tokens actually go — context resend vs real work — and what boundary compression could save.</p>
+    <p class="tag">Give it an agent run log and it shows where the tokens went: context resent each step against new output, and what compressing at goal boundaries might save.</p>
   </header>
 
   <section class="gallery">
@@ -148,7 +148,7 @@ a{color:var(--accent)}
     <div class="guide-body">
       <div class="src">
         <div class="src-h"><span class="dot ok"></span>Claude API agent (your own loop)</div>
-        <p>You already get token counts on every call — just log them. Append one row per step from <span class="mono">response.usage</span>, then save the array as JSON:</p>
+        <p>Every call already returns token counts. Record one row per step from <span class="mono">response.usage</span> and save the array as JSON:</p>
 <pre>log = []
 # inside your agent loop, after each API call:
 resp = client.messages.create(...)
@@ -161,7 +161,7 @@ log.append({
 })
 # when the run ends:
 json.dump(log, open("run_log.json", "w"))</pre>
-        <p class="fine">Drop <span class="mono">run_log.json</span> below. The <span class="mono">goal</span>/<span class="mono">boundary</span> fields are optional but unlock the compression projection.</p>
+        <p class="fine">Then give <span class="mono">run_log.json</span> to the tool. The <span class="mono">goal</span> and <span class="mono">boundary</span> fields are optional; with them, the compression estimate can be made.</p>
       </div>
       <div class="src">
         <div class="src-h"><span class="dot ok"></span>HVA harness</div>
@@ -193,14 +193,14 @@ json.dump(log, open("run_log.json", "w"))</pre>
   <div id="out" hidden></div>
 
   <section class="card" style="margin-top:24px">
-    <h3>Run it on everything: the CLI</h3>
-    <p class="sub">The website is for a quick look. For your whole project, the companion CLI reads logs automatically &mdash; including Claude Code's OpenTelemetry stream.</p>
+    <h3>The command-line tool</h3>
+    <p class="sub">The page is for a quick look. For a whole project, the command-line version reads logs directly, including Claude Code's OpenTelemetry output.</p>
     <div class="cli"><code id="cli">pip install tokenlens</code><button class="btn ghost" id="copycli" type="button">Copy</button></div>
     <p class="fine" style="font-size:.78rem;color:var(--muted);margin-top:8px"><span class="badge">coming soon</span> &nbsp;Published alongside the open-source HVA repo. Until then, use the uploader above.</p>
   </section>
 
   <footer>
-    <p><strong>Two input formats.</strong> (a) The HVA harness format — a <code>batch_summary.json</code> or single run with <code>steps[]</code> carrying <code>tokens_in</code>/<code>tokens_out</code>/<code>tag</code>. (b) A generic step log: a JSON array of <code>{step, input_tokens, output_tokens}</code> objects (optional <code>goal</code> and <code>boundary</code>), which any Claude API agent loop can emit in a few lines.</p>
+    <p>Two formats are read. One is the harness format, a <code>batch_summary.json</code> or a single run with a <code>steps</code> list carrying <code>tokens_in</code>, <code>tokens_out</code> and <code>tag</code>. The other is a generic step log, a JSON array of <code>{step, input_tokens, output_tokens}</code> objects, with <code>goal</code> and <code>boundary</code> optional, which an agent loop on the Claude API can produce in a few lines.</p>
     <details>
       <summary>Generic format example</summary>
 <pre>[
@@ -209,8 +209,8 @@ json.dump(log, open("run_log.json", "w"))</pre>
   {"step":2,"input_tokens":7700,"output_tokens":850,"goal":1,"boundary":true}
 ]</pre>
     </details>
-    <p style="margin-top:14px">Claude Code support is next: its per-call token data comes through OpenTelemetry (the <code>claude_code.api_request</code> event), which the companion CLI package will read directly.</p>
-    <p style="margin-top:14px;font-size:.78rem">Compression saving is a projection from the measured per-step context curve, not a guarantee. On the HVA benchmark, boundary compression cut tokens ~54% but reduced task success 20/20 → 18/20 via a premature-termination failure; a saving is only real at equal success. This tool shows the opportunity, not a safe-to-apply result.</p>
+    <p style="margin-top:14px">Claude Code reports its per-call token counts through OpenTelemetry, in the <code>claude_code.api_request</code> event, rather than a file. The command-line tool reads that directly.</p>
+    <p style="margin-top:14px;font-size:.78rem">The compression figure is an estimate from the per-step context curve, not a promise. In the study, compression of this kind cut tokens by about 54% but lowered task success from 20 of 20 runs to 18 of 20, because the agent sometimes stopped early. A saving only counts if success holds, so treat this as the size of the opportunity rather than something to apply as-is.</p>
   </footer>
 </div>
 
@@ -315,7 +315,7 @@ function render(steps,totals,meta){
 
     <section class="card">
       <h3>Where the tokens go</h3>
-      <p class="sub">Input is context re-sent on every call; output is new generation. Context resend is not waste &mdash; it is how a stateless model remembers &mdash; but part of it is compressible.</p>
+      <p class="sub">Input is the context resent on every call; output is what the model generated. Resend is not waste, since it is how a model with no memory between calls keeps track of what it has done, but part of it can be compressed.</p>
       ${barSplit(a)}
       <div class="legend">
         <span><i style="background:var(--resend)"></i>context resend (input)</span>
@@ -339,7 +339,7 @@ function render(steps,totals,meta){
           <div class="half"><div class="k mono" style="font-size:.7rem;color:var(--muted)">CURRENT</div><div class="n">${fmt(a.total)}</div></div>
           <div class="half sav"><div class="k mono" style="font-size:.7rem;color:var(--muted)">PROJECTED</div><div class="n">${fmt(a.projTotal)}</div></div>
         </div>
-        <p class="note">Projected total reduction ~<strong>${pct(a.total-a.projTotal,a.total).toFixed(0)}%</strong>. This is an upper-bound estimate from the context curve, not a measured result — see the caveat below. Compression can also cut task success; it must be verified against an independent check before applying.</p>
+        <p class="note">Estimated total reduction about <strong>${pct(a.total-a.projTotal,a.total).toFixed(0)}%</strong>. This is an upper bound from the context curve, not a measured result. Compression can also lower task success, so it needs checking against an independent measure before it is applied.</p>
       `:`
         <p class="sub">This log has no goal boundaries marked, so no compression projection can be made. Add a <span class="mono">boundary</span> flag (generic format) or <span class="mono">tag:"boundary"</span> (harness) to the first step of each new goal.</p>
       `}
