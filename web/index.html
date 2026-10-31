@@ -87,7 +87,9 @@ svg{display:block;max-width:100%;height:auto}
 .legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:.76rem;color:var(--muted);margin-top:10px}
 .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .note{font-size:.82rem;color:var(--muted);border-left:3px solid var(--accent);padding:.4rem 0 .4rem .8rem;margin-top:16px}
+.step-h{font-weight:700;font-size:.9rem;margin:16px 0 2px;color:var(--ink)}
 .cli{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.cli code{word-break:break-all}
 .cli code{font-family:var(--mono);font-size:.9rem;background:var(--bg);border:1px solid var(--line);
   border-radius:8px;padding:.5rem .8rem;color:var(--ink)}
 .compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
@@ -171,8 +173,8 @@ json.dump(log, open("run_log.json", "w"))</pre>
         <p class="fine">Drop <span class="mono">batch_summary.json</span> or any single <span class="mono">runs/*.json</span> below.</p>
       </div>
       <div class="src">
-        <div class="src-h"><span class="dot soon"></span>Claude Code <span class="badge">coming soon</span></div>
-        <p>Claude Code reports per-call tokens through OpenTelemetry (the <span class="mono">claude_code.api_request</span> event), not as a file you can drop here. The companion CLI — <span class="mono">pip install tokenlens</span> — will read that stream directly. Until it ships, there's no log to upload from Claude Code itself.</p>
+        <div class="src-h"><span class="dot soon"></span>Claude Code</div>
+        <p>Claude Code reports per-call tokens through OpenTelemetry (the <span class="mono">claude_code.api_request</span> event), not as a file you can drop here. The command-line tool reads that output directly; see the download section below. Its reader for this format is built but not yet checked against a real capture.</p>
       </div>
     </div>
   </details>
@@ -193,10 +195,24 @@ json.dump(log, open("run_log.json", "w"))</pre>
   <div id="out" hidden></div>
 
   <section class="card" style="margin-top:24px">
-    <h3>The command-line tool</h3>
-    <p class="sub">The page is for a quick look. For a whole project, the command-line version reads logs directly, including Claude Code's OpenTelemetry output.</p>
-    <div class="cli"><code id="cli">pip install tokenlens</code><button class="btn ghost" id="copycli" type="button">Copy</button></div>
-    <p class="fine" style="font-size:.78rem;color:var(--muted);margin-top:8px"><span class="badge">coming soon</span> &nbsp;Published alongside the open-source HVA repo. Until then, use the uploader above.</p>
+    <h3>Download the command-line tool</h3>
+    <p class="sub">The page is for a quick look. To run the analysis over a whole project's logs, including Claude Code's OpenTelemetry output, install the command-line version from the open-source repository on GitHub. It needs Python 3.10 or newer, and nothing else.</p>
+
+    <p class="step-h">The quick way, one command</p>
+    <p class="fine">Installs directly from GitHub without cloning anything:</p>
+    <div class="cli"><code id="cli">pip install "git+https://github.com/ahmlchannel2025/TokenLens.git#subdirectory=cli"</code><button class="btn ghost" id="copycli" type="button">Copy</button></div>
+
+    <p class="step-h">Or clone the repository first</p>
+    <p class="fine">Use this if you also want the research code, the paper, and the notebooks:</p>
+    <pre>git clone https://github.com/ahmlchannel2025/TokenLens.git
+cd TokenLens/cli
+pip install .</pre>
+
+    <p class="step-h">Then run it</p>
+    <pre>tokenlens analyze batch_summary.json       # a harness log
+tokenlens analyze run_log.json             # a generic step log
+tokenlens analyze - &lt; telemetry.jsonl       # Claude Code OpenTelemetry, piped in</pre>
+    <p class="fine" style="margin-top:8px">The format is detected from the file. Add <span class="mono">--json</span> for machine-readable output. The OpenTelemetry reader for Claude Code is built against the documented schema but not yet checked against a real capture.</p>
   </section>
 
   <footer>
@@ -421,7 +437,7 @@ drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("over"
   const f=e.dataTransfer.files[0]; if(f)readFile(f);});
 document.querySelectorAll(".scard").forEach(b=>b.addEventListener("click",()=>loadSample(b.dataset.k)));
 $("#copycli").addEventListener("click",async()=>{
-  const t="pip install tokenlens";
+  const t='pip install "git+https://github.com/ahmlchannel2025/TokenLens.git#subdirectory=cli"';
   try{ await navigator.clipboard.writeText(t); $("#copycli").textContent="Copied"; setTimeout(()=>$("#copycli").textContent="Copy",1400); }
   catch(e){ const r=document.createRange(); r.selectNode($("#cli")); getSelection().removeAllRanges(); getSelection().addRange(r); }
 });
