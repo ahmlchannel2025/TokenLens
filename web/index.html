@@ -1,0 +1,432 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>TokenLens</title>
+<style>
+/* Layout: single-column dev-tool. Drop zone up top, results stack below. Monospace data, humanist sans for prose. */
+:root{
+  --bg:#f6f7f4; --panel:#ffffff; --ink:#15171a; --muted:#5c6470;
+  --line:#dfe3db; --accent:#2f6f4f; --accent-weak:#e4efe8;
+  --resend:#c2683a; --work:#2f6f4f; --grid:#ececec;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"Inter",system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#101311; --panel:#171b18; --ink:#e9ece7; --muted:#9aa39a;
+  --line:#2a302b; --accent:#5fb584; --accent-weak:#1c2a22;
+  --resend:#e08a57; --work:#5fb584; --grid:#242a25; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#101311; --panel:#171b18; --ink:#e9ece7; --muted:#9aa39a;
+  --line:#2a302b; --accent:#5fb584; --accent-weak:#1c2a22;
+  --resend:#e08a57; --work:#5fb584; --grid:#242a25; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5}
+.wrap{max-width:860px;margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:40px 64px}
+h1{font-family:var(--sans);font-weight:700;font-size:1.9rem;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.tag{color:var(--muted);font-size:.95rem;margin:.3rem 0 0}
+.mono{font-family:var(--mono)}
+.eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin:0 0 .5rem}
+header{margin-bottom:28px}
+/* sample gallery */
+.gallery{margin-bottom:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.scard{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:13px 14px;cursor:pointer;display:flex;flex-direction:column;gap:3px;transition:border-color .12s,transform .12s;font-family:var(--sans)}
+.scard:hover{border-color:var(--accent);transform:translateY(-1px)}
+.scard.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.scard .st{font-weight:700;font-size:.86rem;color:var(--ink)}
+.scard .sd{font-size:.76rem;color:var(--muted);line-height:1.35}
+.scard .sm{font-family:var(--mono);font-size:.72rem;color:var(--accent);margin-top:2px}
+/* getting-a-log guide */
+.guide{border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:16px;overflow:hidden}
+.guide>summary{list-style:none;padding:14px 18px;font-size:.9rem;font-weight:600;color:var(--accent);
+  display:flex;align-items:center;justify-content:space-between}
+.guide>summary::-webkit-details-marker{display:none}
+.guide[open]>summary{border-bottom:1px solid var(--line)}
+.guide-body{padding:16px 18px;display:grid;gap:18px}
+.src-h{font-weight:700;font-size:.92rem;display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+.src p{margin:.3rem 0;font-size:.86rem;color:var(--muted)}
+.src .fine{font-size:.8rem}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.dot.ok{background:var(--accent)}
+.dot.soon{background:var(--resend)}
+.badge{font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--accent-weak);color:var(--resend);border-radius:999px;padding:.1rem .5rem;font-weight:700}
+/* drop zone */
+.drop{border:1.5px dashed var(--line);border-radius:12px;background:var(--panel);
+  padding:28px 20px;text-align:center;transition:border-color .15s,background .15s;cursor:pointer}
+.drop.over{border-color:var(--accent);background:var(--accent-weak)}
+.drop h2{margin:.2rem 0 .4rem;font-size:1.05rem}
+.drop p{margin:.2rem 0;color:var(--muted);font-size:.88rem}
+.drop .or{font-size:.8rem;margin-top:.7rem}
+.btn{font-family:var(--sans);font-size:.85rem;font-weight:600;border:1px solid var(--accent);
+  background:var(--accent);color:#fff;border-radius:8px;padding:.5rem .9rem;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.samples{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-top:.9rem}
+.err{color:#b23b2e;font-size:.85rem;margin-top:.8rem;font-family:var(--mono)}
+/* results */
+#out[hidden]{display:none!important}
+.meta{font-family:var(--mono);font-size:.78rem;color:var(--muted);margin:26px 0 14px;
+  display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.pill{border:1px solid var(--line);border-radius:999px;padding:.12rem .55rem;background:var(--panel)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0 8px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.tile .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font-family:var(--mono);font-weight:700;font-size:1.8rem;letter-spacing:-.01em;margin-top:.25rem;
+  font-variant-numeric:tabular-nums}
+.tile .s{font-size:.78rem;color:var(--muted);margin-top:.2rem}
+.tile.flag .v{color:var(--resend)}
+section.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-top:18px;min-width:0}
+section.card h3{margin:0 0 .3rem;font-size:1.02rem}
+section.card .sub{color:var(--muted);font-size:.85rem;margin:0 0 14px}
+.chartbox{overflow-x:auto}
+svg{display:block;max-width:100%;height:auto}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:.76rem;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.note{font-size:.82rem;color:var(--muted);border-left:3px solid var(--accent);padding:.4rem 0 .4rem .8rem;margin-top:16px}
+.cli{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.cli code{font-family:var(--mono);font-size:.9rem;background:var(--bg);border:1px solid var(--line);
+  border-radius:8px;padding:.5rem .8rem;color:var(--ink)}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
+.compare .half{text-align:center;padding:12px;border:1px solid var(--line);border-radius:10px}
+.compare .half .n{font-family:var(--mono);font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.compare .half.sav .n{color:var(--accent)}
+footer{margin-top:40px;color:var(--muted);font-size:.8rem;border-top:1px solid var(--line);padding-top:18px}
+footer code{font-family:var(--mono);background:var(--accent-weak);padding:.08rem .35rem;border-radius:4px;color:var(--ink)}
+details{margin-top:10px}
+summary{cursor:pointer;font-size:.85rem;color:var(--accent);font-weight:600}
+pre{font-family:var(--mono);font-size:.74rem;background:var(--bg);border:1px solid var(--line);
+  border-radius:8px;padding:12px;overflow-x:auto;margin-top:10px}
+a{color:var(--accent)}
+@media (max-width:460px){.compare{grid-template-columns:1fr}h1{font-size:1.6rem}}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Agent token economics</p>
+    <h1>TokenLens</h1>
+    <p class="tag">Drop in an agent run log and see where the tokens actually go — context resend vs real work — and what boundary compression could save.</p>
+  </header>
+
+  <section class="gallery">
+    <p class="eyebrow" style="margin-bottom:10px">Try it on real runs &middot; click a card</p>
+    <div class="cards" id="cards">
+      <button class="scard" data-k="pooled" type="button">
+        <span class="st">Full benchmark</span>
+        <span class="sd">60 runs pooled &middot; the headline split</span>
+        <span class="sm">63.4M tokens</span>
+      </button>
+      <button class="scard" data-k="baseline" type="button">
+        <span class="st">Refactor &mdash; no compression</span>
+        <span class="sd">one run, context climbs every step</span>
+        <span class="sm">931k tokens</span>
+      </button>
+      <button class="scard" data-k="compressed" type="button">
+        <span class="st">Refactor &mdash; compression on</span>
+        <span class="sd">same task &middot; context resets at goals</span>
+        <span class="sm">426k tokens</span>
+      </button>
+      <button class="scard" data-k="failure" type="button">
+        <span class="st">Compression failure</span>
+        <span class="sd">agent stopped early (no_tool_call)</span>
+        <span class="sm">234k tokens</span>
+      </button>
+      <button class="scard" data-k="pipeline" type="button">
+        <span class="st">Pipeline task</span>
+        <span class="sd">different shape &middot; same ~98% split</span>
+        <span class="sm">1.6M tokens</span>
+      </button>
+    </div>
+    <p class="fine" style="color:var(--muted);font-size:.78rem;margin-top:8px">All five are real HVA runs on Claude Haiku. Compare <strong>no compression</strong> and <strong>compression on</strong> (same task, seed 1007) to see the effect.</p>
+  </section>
+
+  <details class="guide" id="guide">
+    <summary>Bring your own run log &rarr;</summary>
+    <div class="guide-body">
+      <div class="src">
+        <div class="src-h"><span class="dot ok"></span>Claude API agent (your own loop)</div>
+        <p>You already get token counts on every call — just log them. Append one row per step from <span class="mono">response.usage</span>, then save the array as JSON:</p>
+<pre>log = []
+# inside your agent loop, after each API call:
+resp = client.messages.create(...)
+log.append({
+    "step": i,
+    "input_tokens": resp.usage.input_tokens,
+    "output_tokens": resp.usage.output_tokens,
+    "goal": current_goal,        # optional
+    "boundary": is_new_goal,     # optional, marks a goal start
+})
+# when the run ends:
+json.dump(log, open("run_log.json", "w"))</pre>
+        <p class="fine">Drop <span class="mono">run_log.json</span> below. The <span class="mono">goal</span>/<span class="mono">boundary</span> fields are optional but unlock the compression projection.</p>
+      </div>
+      <div class="src">
+        <div class="src-h"><span class="dot ok"></span>HVA harness</div>
+        <p>Run a batch, then drop the file it writes:</p>
+<pre>py -3.12 batch.py --n 20
+# &rarr; writes batch_summary.json</pre>
+        <p class="fine">Drop <span class="mono">batch_summary.json</span> or any single <span class="mono">runs/*.json</span> below.</p>
+      </div>
+      <div class="src">
+        <div class="src-h"><span class="dot soon"></span>Claude Code <span class="badge">coming soon</span></div>
+        <p>Claude Code reports per-call tokens through OpenTelemetry (the <span class="mono">claude_code.api_request</span> event), not as a file you can drop here. The companion CLI — <span class="mono">pip install tokenlens</span> — will read that stream directly. Until it ships, there's no log to upload from Claude Code itself.</p>
+      </div>
+    </div>
+  </details>
+
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload a run log">
+    <h2>Drop a run log</h2>
+    <p>Harness <span class="mono">batch_summary.json</span> / run JSON, or a generic step log</p>
+    <p class="or">or</p>
+    <button class="btn" id="pick" type="button">Choose file</button>
+    <input type="file" id="file" accept=".json,application/json" hidden>
+    <div class="samples">
+      <button class="btn ghost" data-sample="refactor" type="button">Load sample: refactor run</button>
+      <button class="btn ghost" data-sample="generic" type="button">Load sample: generic loop</button>
+    </div>
+    <div class="err" id="err" hidden></div>
+  </div>
+
+  <div id="out" hidden></div>
+
+  <section class="card" style="margin-top:24px">
+    <h3>Run it on everything: the CLI</h3>
+    <p class="sub">The website is for a quick look. For your whole project, the companion CLI reads logs automatically &mdash; including Claude Code's OpenTelemetry stream.</p>
+    <div class="cli"><code id="cli">pip install tokenlens</code><button class="btn ghost" id="copycli" type="button">Copy</button></div>
+    <p class="fine" style="font-size:.78rem;color:var(--muted);margin-top:8px"><span class="badge">coming soon</span> &nbsp;Published alongside the open-source HVA repo. Until then, use the uploader above.</p>
+  </section>
+
+  <footer>
+    <p><strong>Two input formats.</strong> (a) The HVA harness format — a <code>batch_summary.json</code> or single run with <code>steps[]</code> carrying <code>tokens_in</code>/<code>tokens_out</code>/<code>tag</code>. (b) A generic step log: a JSON array of <code>{step, input_tokens, output_tokens}</code> objects (optional <code>goal</code> and <code>boundary</code>), which any Claude API agent loop can emit in a few lines.</p>
+    <details>
+      <summary>Generic format example</summary>
+<pre>[
+  {"step":0,"input_tokens":3100,"output_tokens":160,"goal":0,"boundary":false},
+  {"step":1,"input_tokens":4200,"output_tokens":240,"goal":0,"boundary":false},
+  {"step":2,"input_tokens":7700,"output_tokens":850,"goal":1,"boundary":true}
+]</pre>
+    </details>
+    <p style="margin-top:14px">Claude Code support is next: its per-call token data comes through OpenTelemetry (the <code>claude_code.api_request</code> event), which the companion CLI package will read directly.</p>
+    <p style="margin-top:14px;font-size:.78rem">Compression saving is a projection from the measured per-step context curve, not a guarantee. On the HVA benchmark, boundary compression cut tokens ~54% but reduced task success 20/20 → 18/20 via a premature-termination failure; a saving is only real at equal success. This tool shows the opportunity, not a safe-to-apply result.</p>
+  </footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"k":String(Math.round(n));
+const pct=(a,b)=>b?(100*a/b):0;
+
+/* ---- parse both formats into a flat list of steps {idx, tin, tout, goal, boundary} + meta ---- */
+function parse(json){
+  // Format A: harness. Has runs[] or steps[] with tokens_in/tokens_out.
+  const isHarnessStep=s=>s&&typeof s.tokens_in==="number"&&typeof s.tokens_out==="number";
+  let runs=null, backend=null, label=null;
+  if(Array.isArray(json)){
+    // Format B: generic array of steps.
+    if(json.length&&(("input_tokens"in json[0])||("tokens_in"in json[0]))){
+      return {steps:genericSteps(json), totals:null, meta:{label:"generic step log", runs:1}};
+    }
+    throw new Error("Array given, but items are not step objects. Expected {step,input_tokens,output_tokens,...}.");
+  }
+  if(Array.isArray(json.runs)){ runs=json.runs.filter(r=>r.end_reason!=="error"&&Array.isArray(r.steps)); backend=json.backend; label=(json.task_ids||[]).join("+")||json.batch_id; }
+  else if(Array.isArray(json.steps)){ runs=[json]; backend=json.backend; label=json.task_id||"run"; }
+  else if(Array.isArray(json)){ /* handled above */ }
+  else throw new Error("Unrecognized JSON. Need a harness summary (runs[]), a single run (steps[]), or a generic step array.");
+
+  if(!runs.length) throw new Error("No usable runs found (all errored, or no steps[]).");
+  const steps=[];
+  // Authoritative totals: tokens_total includes the plan call and finish_substep turns that
+  // have no step row, so sum it when present. The step rows still drive the position curve.
+  let authIn=0, authOut=0, haveAuth=true;
+  for(const r of runs){
+    for(const s of r.steps){
+      if(!isHarnessStep(s)) continue;
+      steps.push({idx:s.step_idx??steps.length, tin:s.tokens_in, tout:s.tokens_out,
+                  goal:s.goal_index??null, boundary:s.tag==="boundary"});
+    }
+    if(r.tokens_total&&typeof r.tokens_total.input==="number"){ authIn+=r.tokens_total.input; authOut+=r.tokens_total.output; }
+    else haveAuth=false;
+  }
+  if(!steps.length) throw new Error("Runs found, but no steps carried tokens_in/tokens_out.");
+  const totals=haveAuth?{input:authIn,output:authOut}:null;
+  return {steps, totals, meta:{label, backend, runs:runs.length}};
+}
+function genericSteps(arr){
+  return arr.map((s,i)=>({
+    idx:(typeof s.step==="number")?s.step:i,
+    tin:s.input_tokens??s.tokens_in, tout:s.output_tokens??s.tokens_out,
+    goal:(typeof s.goal==="number")?s.goal:null,
+    boundary:!!s.boundary
+  })).filter(s=>typeof s.tin==="number"&&typeof s.tout==="number");
+}
+
+/* ---- analysis ---- */
+function analyze(steps,totals){
+  // Prefer authoritative run totals (include plan + finish_substep turns) for the headline split;
+  // fall back to step sums for generic logs that have no separate total.
+  const tin=totals?totals.input:steps.reduce((a,s)=>a+s.tin,0);
+  const tout=totals?totals.output:steps.reduce((a,s)=>a+s.tout,0);
+  const total=tin+tout;
+  // position buckets for the mean-context curve
+  const buckets=[[0,4],[5,9],[10,19],[20,39],[40,1e9]];
+  const curve=buckets.map(([a,b])=>{
+    const sel=steps.filter(s=>s.idx>=a&&s.idx<=b);
+    return {label:b<1e9?`${a}–${b}`:`${a}+`, mean:sel.length?sel.reduce((x,s)=>x+s.tin,0)/sel.length:0, n:sel.length};
+  }).filter(c=>c.n>0);
+  // compression projection: at each boundary the resend would reset toward the early-run baseline.
+  // Estimate: replace each post-first-goal step's input above the floor with ~ the floor + a small summary carry.
+  // floor = the "fresh context" level a boundary reset returns to: mean of the cheapest
+  // few steps, not the run average (which is wrong for short runs).
+  const lows=steps.map(s=>s.tin).sort((a,b)=>a-b).slice(0,Math.max(1,Math.floor(steps.length/5)));
+  const floor=lows.reduce((a,b)=>a+b,0)/lows.length;
+  const haveBoundaries=steps.some(s=>s.boundary);
+  // Projection is computed on the step-input basis (what compression actually touches), then
+  // expressed as a % and applied to the true total, so it's consistent with the headline figure.
+  const stepIn=steps.reduce((a,s)=>a+s.tin,0);
+  let projStepIn=stepIn, saving=0;
+  if(haveBoundaries&&stepIn){
+    const cap=Math.max(floor*2, floor+1500); // summaries + current goal's own transcript
+    let seen=false; projStepIn=0;
+    for(const s of steps){ if(s.boundary) seen=true; projStepIn+=seen?Math.min(s.tin,cap):s.tin; }
+    saving=pct(stepIn-projStepIn,stepIn); // fraction of INPUT removed
+  }
+  const projTotal=Math.round(total-(tin*saving/100)); // apply input-saving fraction to true input
+  return {tin,tout,total,curve,resendPct:pct(tin,total),haveBoundaries,projTotal,saving};
+}
+
+/* ---- render ---- */
+function render(steps,totals,meta){
+  const a=analyze(steps,totals);
+  const out=$("#out"); out.hidden=false;
+  const metaBits=[`<span class="pill">${meta.runs} run${meta.runs>1?"s":""}</span>`,
+    `<span class="pill">${steps.length} steps</span>`,
+    meta.label?`<span class="pill">${esc(meta.label)}</span>`:"",
+    meta.backend?`<span class="pill">${esc(meta.backend)}</span>`:""].join("");
+  out.innerHTML=`
+    <div class="meta">${metaBits}</div>
+    <div class="tiles">
+      <div class="tile flag"><div class="k">Context resend</div><div class="v">${a.resendPct.toFixed(1)}%</div><div class="s">of all tokens are input re-sent each step</div></div>
+      <div class="tile"><div class="k">New output</div><div class="v">${(100-a.resendPct).toFixed(1)}%</div><div class="s">tokens the model actually generated</div></div>
+      <div class="tile"><div class="k">Total tokens</div><div class="v">${fmt(a.total)}</div><div class="s">input + output across the log</div></div>
+    </div>
+
+    <section class="card">
+      <h3>Where the tokens go</h3>
+      <p class="sub">Input is context re-sent on every call; output is new generation. Context resend is not waste &mdash; it is how a stateless model remembers &mdash; but part of it is compressible.</p>
+      ${barSplit(a)}
+      <div class="legend">
+        <span><i style="background:var(--resend)"></i>context resend (input)</span>
+        <span><i style="background:var(--work)"></i>new output</span>
+        ${a.haveBoundaries?`<span><i style="background:transparent;border:1.5px dashed var(--ink)"></i>compressible (est.)</span>`:``}
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Context grows with every step</h3>
+      <p class="sub">Mean input tokens per step, by position in the run. Each step re-pays for the whole history before it, so the curve climbs.</p>
+      <div class="chartbox">${curveChart(a.curve)}</div>
+      <div class="legend"><span><i style="background:var(--resend)"></i>mean input tokens / step</span></div>
+    </section>
+
+    <section class="card">
+      <h3>Boundary-compression opportunity</h3>
+      ${a.haveBoundaries?`
+        <p class="sub">If completed goals' transcripts were summarized at each boundary, projected total vs. current:</p>
+        <div class="compare">
+          <div class="half"><div class="k mono" style="font-size:.7rem;color:var(--muted)">CURRENT</div><div class="n">${fmt(a.total)}</div></div>
+          <div class="half sav"><div class="k mono" style="font-size:.7rem;color:var(--muted)">PROJECTED</div><div class="n">${fmt(a.projTotal)}</div></div>
+        </div>
+        <p class="note">Projected total reduction ~<strong>${pct(a.total-a.projTotal,a.total).toFixed(0)}%</strong>. This is an upper-bound estimate from the context curve, not a measured result — see the caveat below. Compression can also cut task success; it must be verified against an independent check before applying.</p>
+      `:`
+        <p class="sub">This log has no goal boundaries marked, so no compression projection can be made. Add a <span class="mono">boundary</span> flag (generic format) or <span class="mono">tag:"boundary"</span> (harness) to the first step of each new goal.</p>
+      `}
+    </section>`;
+  out.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function barSplit(a){
+  const w=600,h=54,rp=a.resendPct;
+  const rw=w*rp/100;
+  // compressible portion: tokens the projection removes (all from input), as a hatched slice of the resend band
+  const savedInput=a.haveBoundaries?(a.total-a.projTotal):0;
+  const compW=a.tin?rw*(savedInput/a.tin):0;
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" role="img" aria-label="Resend ${rp.toFixed(1)} percent, output ${(100-rp).toFixed(1)} percent">
+    <defs><pattern id="hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="var(--resend)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--bg)" stroke-width="2"/></pattern></defs>
+    <rect x="0" y="10" width="${w}" height="26" rx="6" fill="var(--work)"/>
+    <rect x="0" y="10" width="${rw.toFixed(1)}" height="26" rx="6" fill="var(--resend)"/>
+    ${compW>2?`<rect x="${(rw-compW).toFixed(1)}" y="10" width="${compW.toFixed(1)}" height="26" fill="url(#hatch)"/>`:``}
+    <text x="8" y="27" font-family="var(--mono)" font-size="12" fill="#fff">resend ${rp.toFixed(1)}%</text>
+    <text x="${w-8}" y="27" text-anchor="end" font-family="var(--mono)" font-size="12" fill="#fff">out ${(100-rp).toFixed(1)}%</text>
+  </svg>`;
+}
+function curveChart(curve){
+  const W=600,H=240,ml=52,mr=14,mt=14,mb=42;
+  const iw=W-ml-mr, ih=H-mt-mb;
+  const max=Math.max(...curve.map(c=>c.mean))*1.1||1;
+  const bw=iw/curve.length;
+  let bars="",labels="",yticks="";
+  for(let t=0;t<=4;t++){const v=max*t/4;const y=mt+ih-(v/max)*ih;
+    yticks+=`<line x1="${ml}" y1="${y}" x2="${W-mr}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>
+      <text x="${ml-8}" y="${y+4}" text-anchor="end" font-family="var(--mono)" font-size="10" fill="var(--muted)">${fmt(v)}</text>`;}
+  curve.forEach((c,i)=>{
+    const x=ml+i*bw+bw*0.18, bwi=bw*0.64, bh=(c.mean/max)*ih, y=mt+ih-bh;
+    bars+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bwi.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="var(--resend)"/>
+      <text x="${(x+bwi/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--muted)">${fmt(c.mean)}</text>`;
+    labels+=`<text x="${(ml+i*bw+bw/2).toFixed(1)}" y="${H-mb+18}" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--muted)">${c.label}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" role="img" aria-label="Mean input tokens per step by run position">
+    ${yticks}${bars}
+    <line x1="${ml}" y1="${mt+ih}" x2="${W-mr}" y2="${mt+ih}" stroke="var(--line)" stroke-width="1"/>
+    ${labels}
+    <text x="${ml+iw/2}" y="${H-4}" text-anchor="middle" font-family="var(--sans)" font-size="11" fill="var(--muted)">step position in run</text>
+  </svg>`;
+}
+
+/* ---- real sample runs, fetched from the page's own published file ---- */
+let SAMPLES=null;
+function loadSample(k){
+  if(!SAMPLES){ showErr("Samples are still loading — one moment."); return; }
+  if(!SAMPLES[k]){ showErr("Sample not found."); return; }
+  document.querySelectorAll(".scard").forEach(c=>c.classList.toggle("active",c.dataset.k===k));
+  handle(SAMPLES[k]);
+}
+
+/* ---- wiring ---- */
+function showErr(m){const e=$("#err");e.textContent="⚠ "+m;e.hidden=false;}
+function clearErr(){$("#err").hidden=true;}
+function handle(json){
+  clearErr();
+  try{ const {steps,totals,meta}=parse(json); render(steps,totals,meta); }
+  catch(e){ $("#out").hidden=true; showErr(e.message); }
+}
+function readFile(f){
+  const r=new FileReader();
+  r.onload=()=>{ try{ handle(JSON.parse(r.result)); }catch(e){ showErr("Not valid JSON: "+e.message);} };
+  r.onerror=()=>showErr("Could not read file.");
+  r.readAsText(f);
+}
+const drop=$("#drop");
+$("#pick").addEventListener("click",e=>{e.stopPropagation();$("#file").click();});
+drop.addEventListener("click",()=>$("#file").click());
+drop.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();$("#file").click();}});
+$("#file").addEventListener("change",e=>{if(e.target.files[0])readFile(e.target.files[0]);});
+drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("over");});
+drop.addEventListener("dragleave",()=>drop.classList.remove("over"));
+drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("over");
+  const f=e.dataTransfer.files[0]; if(f)readFile(f);});
+document.querySelectorAll(".scard").forEach(b=>b.addEventListener("click",()=>loadSample(b.dataset.k)));
+$("#copycli").addEventListener("click",async()=>{
+  const t="pip install tokenlens";
+  try{ await navigator.clipboard.writeText(t); $("#copycli").textContent="Copied"; setTimeout(()=>$("#copycli").textContent="Copy",1400); }
+  catch(e){ const r=document.createRange(); r.selectNode($("#cli")); getSelection().removeAllRanges(); getSelection().addRange(r); }
+});
+
+/* fetch the real samples, then open on the pooled headline run so the first frame shows the finding */
+fetch("samples.min.json").then(r=>r.json()).then(s=>{ SAMPLES=s; loadSample("pooled"); })
+  .catch(()=>{ showErr("Could not load samples. Drop a run log, or reload the page."); });
+</script>

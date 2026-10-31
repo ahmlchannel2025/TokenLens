@@ -1,0 +1,4 @@
+anthropic>=1.13
+pytest
+pyyaml
+matplotlib

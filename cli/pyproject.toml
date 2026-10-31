@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tokenlens"
+version = "0.1.0"
+description = "See where an AI coding agent's tokens go: context resend vs real work, and the boundary-compression opportunity."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Andrew Lin" }]
+keywords = ["llm", "agents", "tokens", "observability", "claude-code", "opentelemetry"]
+dependencies = []   # stdlib only, on purpose: the analysis must not drift from the finding
+
+[project.scripts]
+tokenlens = "tokenlens.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ahmlchannel2025/TokenLens"
+
+[tool.setuptools]
+packages = ["tokenlens"]
