@@ -1,0 +1,38 @@
+{
+  "resourceLogs": [
+    {
+      "resource": {"attributes": [{"key": "service.name", "value": {"stringValue": "claude-code"}}]},
+      "scopeLogs": [
+        {
+          "scope": {"name": "com.anthropic.claude_code"},
+          "logRecords": [
+            {
+              "body": {"stringValue": "claude_code.api_request"},
+              "attributes": [
+                {"key": "event.name", "value": {"stringValue": "claude_code.api_request"}},
+                {"key": "model", "value": {"stringValue": "claude-haiku-5-5"}},
+                {"key": "input_tokens", "value": {"intValue": "3100"}},
+                {"key": "output_tokens", "value": {"intValue": "180"}},
+                {"key": "cache_read_tokens", "value": {"intValue": "0"}},
+                {"key": "cache_creation_tokens", "value": {"intValue": "2400"}},
+                {"key": "session.id", "value": {"stringValue": "sess_C"}}
+              ]
+            },
+            {
+              "body": {"stringValue": "claude_code.api_request"},
+              "attributes": [
+                {"key": "event.name", "value": {"stringValue": "claude_code.api_request"}},
+                {"key": "model", "value": {"stringValue": "claude-haiku-5-5"}},
+                {"key": "input_tokens", "value": {"intValue": "6000"}},
+                {"key": "output_tokens", "value": {"intValue": "300"}},
+                {"key": "cache_read_tokens", "value": {"intValue": "2400"}},
+                {"key": "cache_creation_tokens", "value": {"intValue": "0"}},
+                {"key": "session.id", "value": {"stringValue": "sess_C"}}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

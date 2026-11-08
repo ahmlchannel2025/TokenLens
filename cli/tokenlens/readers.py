@@ -54,6 +54,11 @@ def detect(data) -> str:
         # A single OTel export is often {"resourceLogs"/"resourceMetrics": [...]}.
         if "resourceLogs" in data or "resourceMetrics" in data:
             return "otel"
+        # A single Claude Code event (e.g. one tool_decision record). Route it to the
+        # otel reader so the user gets its "no api_request events found" guidance
+        # rather than a generic "unrecognized log" error.
+        if isinstance(data.get("name"), str) and data["name"].startswith("claude_code."):
+            return "otel"
     if isinstance(data, list) and data:
         first = data[0]
         if isinstance(first, dict):

@@ -55,6 +55,49 @@ def test_otel_jsonl():
     assert not a.have_boundaries   # Claude Code telemetry has no plan structure
 
 
+# --- Claude Code OpenTelemetry, against fixtures built from the documented schema --- #
+
+import os
+
+FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
+
+
+def test_otel_console_jsonl_fixture():
+    """The console/file exporter writes one JSON record per line; non-request
+    events (e.g. tool_decision) are ignored, and the two sessions become two runs."""
+    with open(os.path.join(FIXTURES, "claude_code_otel.jsonl"), encoding="utf-8") as f:
+        runs = readers.from_json_or_text(f.read())
+    assert len(runs) == 2                      # sess_A and sess_B
+    a = analyze(runs)
+    # 5 api_request events total; the tool_decision line is skipped.
+    assert a.n_steps == 5
+    # input_tokens + cache_read_tokens summed across every request.
+    want_in = (3100 + 0) + (5200 + 2400) + (9100 + 3300) + (3000 + 0) + (7400 + 2800)
+    assert a.total_in == want_in
+    assert a.total_out == 180 + 240 + 620 + 150 + 310
+    assert not a.have_boundaries
+    assert a.resend_pct > 90
+
+
+def test_otel_otlp_logs_fixture():
+    """A parsed OTLP logs payload: attributes under logRecords as {key, value:{...}}."""
+    with open(os.path.join(FIXTURES, "claude_code_otlp_logs.json"), encoding="utf-8") as f:
+        runs = readers.from_json(json.load(f))
+    a = analyze(runs)
+    assert a.n_steps == 2
+    assert a.total_in == (3100 + 0) + (6000 + 2400)
+    assert a.total_out == 180 + 300
+    assert not a.have_boundaries
+
+
+def test_otel_empty_is_clear_error():
+    """A telemetry capture with no api_request events should fail with a message that
+    says how to produce one, not a generic parse error."""
+    import pytest
+    with pytest.raises(ValueError, match="api_request"):
+        readers.from_json_or_text('{"name":"claude_code.tool_decision","session.id":"x"}')
+
+
 def test_unknown_format_errors():
     try:
         analyze(readers.from_json({"nonsense": True}))

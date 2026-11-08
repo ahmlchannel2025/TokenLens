@@ -14,9 +14,10 @@ resend-against-output split and the per-call growth curve.
 
 Three input shapes are handled: JSON Lines from the console or file exporter, with one
 record per line; a parsed OTLP logs payload with a resourceLogs list; and a plain list
-of event objects. The reader has not been checked against a real capture, and it reads
-JSON, not the protobuf that the gRPC exporter produces, so the console or an
-OTLP-over-HTTP-JSON exporter is what to use with it.
+or single event object. The reader is tested against fixtures built from the documented
+schema (cli/tests/fixtures/), but has not yet been checked against a capture from a real
+Claude Code session. It reads JSON, not the protobuf that the gRPC exporter produces, so
+the console or an OTLP-over-HTTP-JSON exporter is what to use with it.
 """
 from __future__ import annotations
 
@@ -79,6 +80,12 @@ def read_otel_events(data) -> list[Run]:
             attrs = _attrs_if_api_request(rec)
             if attrs is not None:
                 events.append(attrs)
+    elif isinstance(data, dict):
+        # A single event record (e.g. one tool_decision). It may or may not be an
+        # api_request; either way _runs_from_attr_dicts gives the right guidance.
+        attrs = _attrs_if_api_request(data)
+        if attrs is not None:
+            events.append(attrs)
     else:
         raise ValueError("OTel input is neither a resourceLogs payload nor a list of events.")
     return _runs_from_attr_dicts(events)
